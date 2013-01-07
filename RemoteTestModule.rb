@@ -2,10 +2,6 @@
 # RemoteTestModule.rb
 # Created: December 10, 2012
 # By: Ron Bowes
-#
-# A very simple implementation of a Padding Oracle module. Basically, it
-# performs the attack against an instance of RemoteTestServer, which is an
-# ideal padding oracle target.
 ##
 #
 require 'httparty'
@@ -22,10 +18,10 @@ class RemoteTestModule
     @blocksize = 16
   end
 
-  def do_encrypt(data)
-    result = HTTParty.get("http://localhost:20222/ecrypt/#{data.unpack("H*").pop}")
+  def encrypt_with_prefix(prefix)
+    result = HTTParty.get("http://localhost:20222/encrypt/#{prefix.unpack("H*").pop}")
 
-    return result.parsed_response !~ /Fail/
+    return [result.parsed_response].pack("H*")
   end
 
   def character_set()

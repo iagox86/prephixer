@@ -57,28 +57,52 @@ module ECBreaker
     return base_list
   end
 
-  def ECBreaker.do_block(mod, block, previous, has_padding = false, verbose = false)
-    # Default result to all question marks - this lets us show it to the user
-    # in a pretty way
-    result = "?" * block.length
-    plaintext = ""
+  def ECBreaker.find_character(mod, current_plaintext)
+    prefix = ("A" * (mod.blocksize - current_plaintext.size - 1))
+    index = current_plaintext.size % mod.blocksize
+    block =  current_plaintext.size / mod.blocksize
+    puts("Character #{index} of block #{block}")
 
-    puts("TODO")
+    goal = mod.encrypt_with_prefix(prefix)[0,mod.blocksize]
 
+    puts("Goal: #{goal.unpack("H*")}")
+    puts("Prefix: '#{prefix}' (#{prefix.length} bytes)")
+
+    generate_set(mod.character_set).each do |c|
+      encrypted_text = mod.encrypt_with_prefix(prefix + current_plaintext + c)[0, mod.blocksize]
+      blocks = encrypted_text.unpack("a#{mod.blocksize}" * (encrypted_text.length / mod.blocksize))
+
+#      if(index == 15)
+#        puts("encrypting: #{prefix + current_plaintext + c}")
+#        puts("Result: #{encrypted_text.unpack("H*")}")
+#      end
+
+
+      if(blocks[0] == goal)
+        puts("Discovered: '#{c}'")
+        return c
+      end
+    end
+
+    puts("Couldn't find a character!")
     exit
-    return plaintext
   end
 
-  # This is the public interface. Call this with the mod, data, and optionally
-  # the iv, and it'll return the decrypted text or throw an error if it can't.
-  # If no IV is given, it's assumed to be NULL (all zeroes).
   def ECBreaker.decrypt(mod, data, verbose = false)
+    result = ''
+
     # Validate the blocksize
     if(data.length % mod.blocksize != 0)
       puts("Encrypted data isn't a multiple of the blocksize! Is this a block cipher?")
     end
 
+    puts("Data: #{data.unpack("H*")}")
+
     blockcount = data.length / mod.blocksize
+
+    loop do
+      result = result + find_character(mod, result)
+    end
 
     # Tell the user what's going on
     if(verbose)
@@ -88,31 +112,6 @@ module ECBreaker
       puts(">> %d blocks:" % blockcount)
     end
 
-    # Split the data into blocks - using unpack is kinda weird, but it's the
-    # best way I could find that isn't Ruby 1.9-specific
-    blocks = data.unpack("a#{mod.blocksize}" * blockcount)
-    i = 0
-    blocks.each do |b|
-      i = i + 1
-      if(verbose)
-        puts(">>> Block #{i}: #{b.unpack("H*")}")
-      end
-    end
-
-    # Decrypt all the blocks - from the last to the first (after the IV).
-    # This can actually be done in any order.
-    result = ''
-    0.upto(blocks.size - 1) do |i|
-      is_last_block = (i == blocks.size - 1)
-      new_result = do_block(mod, blocks[i], blocks[i - 1], is_last_block, verbose)
-      if(new_result.nil?)
-        return nil
-      end
-      result = new_result + result
-      if(verbose)
-        puts(" --> #{result}")
-      end
-    end
 
     # Validate and remove the padding
     pad_bytes = result[result.length - 1].chr
