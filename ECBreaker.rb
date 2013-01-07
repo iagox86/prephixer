@@ -62,26 +62,23 @@ module ECBreaker
     return data.unpack("a#{mod.blocksize}" * block_count)
   end
 
-  def ECBreaker.find_character(mod, current_plaintext)
+  def ECBreaker.find_character(mod, current_plaintext, character_set)
     index = current_plaintext.size % mod.blocksize
     block =  current_plaintext.size / mod.blocksize
     prefix = ("A" * (mod.blocksize - (current_plaintext.size % mod.blocksize) - 1))
 
     goal = to_blocks(mod, mod.encrypt_with_prefix(prefix))[block]
 
-    generate_set(mod.character_set).each do |c|
+    character_set.each do |c|
       encrypted_text = mod.encrypt_with_prefix(prefix + current_plaintext + c)
 
       result = to_blocks(mod, encrypted_text)[block]
 
       if(result == goal)
-        puts("Discovered: '#{c}'")
         return c
       end
     end
-
-    puts("Couldn't find a character!")
-    exit
+    return nil
   end
 
   def ECBreaker.decrypt(mod, data, verbose = false)
@@ -91,8 +88,6 @@ module ECBreaker
     if(data.length % mod.blocksize != 0)
       puts("Encrypted data isn't a multiple of the blocksize! Is this a block cipher?")
     end
-
-    puts("Data: #{data.unpack("H*")}")
 
     blockcount = data.length / mod.blocksize
 
@@ -104,21 +99,33 @@ module ECBreaker
       puts(">> %d blocks:" % blockcount)
     end
 
+    character_set = ' eationsrlhdcumpfgybw.k:v-/,CT0SA;B#G2xI1PFWE)3(*M\'!LRDHN_"9UO54Vj87q$K6zJY%?Z+=@QX&|[]<>^{}'.chars.to_a
+    if(mod.respond_to?(:character_set))
+      character_set = mod.character_set
+    end
+    character_set = generate_set(character_set)
+
     0.upto(data.length - 1) do |i|
-      puts("Finding character #{i} / #{data.length}")
-      result = result + find_character(mod, result)
+      c = find_character(mod, result, character_set)
+      break if(c.nil?)
+      result = result + c
+
+      if(verbose)
+        puts(result)
+      end
     end
 
-    # Validate and remove the padding
-    pad_bytes = result[result.length - 1].chr
-    if(result[result.length - ord(pad_bytes), result.length - 1] != pad_bytes * ord(pad_bytes))
-      puts("Bad padding:")
-      puts(result.unpack("H*"))
-      return nil
+    # 'Result' should have \x01 as padding, because of how the decryption works:
+    # 00000000  45 76 65 72 79 74 68 69 6E 67 20 49 20 64 6F 01   Everything.I.do.
+    # 00000010  45 76 65 72 79 74 68 69 6E 67 20 49 20 64 6F      Everything.I.do
+    # Length: 0x1F (31)
+    #
+    # Validate it!
+    if(ord(result[result.length - 1]) != 1)
+      puts("Invalid padding on result: #{result.unpack("H*")}")
+      exit
     end
-
-    # Remove the padding
-    result = result[0, result.length - ord(pad_bytes)]
+    result = result[0, result.length - 1]
 
     return result
   end

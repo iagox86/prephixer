@@ -10,15 +10,15 @@
 require 'openssl'
 
 class LocalTestModule
-  attr_reader :iv, :ciphertext, :blocksize
+  attr_reader :ciphertext, :blocksize
 
   NAME = "LocalTestModule(tm)"
 
-  def initialize(mode, data, key = nil, iv = nil, verbose = false, delay = 0)
+  def initialize(mode, data, key = nil, verbose = false)
     # Save these variables
     @mode = mode
     @verbose = verbose
-    @delay = delay
+    @data = data
 
     # Create the cipher
     c = OpenSSL::Cipher::Cipher.new(mode)
@@ -26,12 +26,10 @@ class LocalTestModule
     # Set up the required variables
     @blocksize = c.block_size
     @key = key.nil? ? (1..c.key_len).map{rand(255).chr}.join : key
-    @iv  = iv.nil?  ? (1..c.iv_len).map{rand(255).chr}.join  : iv
 
     # Set up the cipher
     c.encrypt
     c.key = @key
-    c.iv  = @iv
 
     @ciphertext = c.update(data) + c.final
 
@@ -42,28 +40,16 @@ class LocalTestModule
       puts("-" * 80)
       puts("mode: #{mode}")
       puts("key:  #{@key.unpack("H*")}")
-      puts("iv:   #{@iv.unpack("H*")}")
       puts("enc:  #{@ciphertext.unpack("H*")}")
       puts("-" * 80)
     end
   end
 
-  def attempt_decrypt(ciphertext)
-    begin
-      if(@delay > 0)
-        sleep(@delay)
-      end
-
-      c = OpenSSL::Cipher::Cipher.new(@mode)
-      c.decrypt
-      c.key = @key
-      c.update(ciphertext)
-      c.final()
-
-      return true
-    rescue OpenSSL::Cipher::CipherError
-      return false
-    end
+  def encrypt_with_prefix(ciphertext)
+    c = OpenSSL::Cipher::Cipher.new(@mode)
+    c.encrypt
+    c.key = @key
+    return c.update(ciphertext + @data) + c.final()
   end
 end
 
