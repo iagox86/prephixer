@@ -5,7 +5,7 @@ require 'openssl'
 
 require 'LocalTestModule'
 require 'RemoteTestModule'
-require 'ECBreaker'
+require 'Prephixer'
 
 if(ARGV[0] == 'remote')
   # Attempt a remote check
@@ -14,10 +14,10 @@ if(ARGV[0] == 'remote')
     mod = RemoteTestModule.new
 
     time = Benchmark.measure do
-      puts ECBreaker.decrypt(mod, mod.data, true)
+      puts Prephixer.decrypt(mod, mod.data, true)
     end
 
-    puts("Guesses: #{ECBreaker.guesses}")
+    puts("Guesses: #{Prephixer.guesses}")
     puts("Time: #{time}")
 
   rescue Errno::ECONNREFUSED => e
@@ -39,7 +39,7 @@ failures = 0
   cipher = ciphers.shuffle[0]
   print("> #{cipher} with random short data... ")
   mod = LocalTestModule.new(cipher, data, nil, nil)
-  d = ECBreaker.decrypt(mod, mod.ciphertext)
+  d = Prephixer.decrypt(mod, mod.ciphertext)
   if(d == data)
     passes += 1
     puts "Passed!"
@@ -57,7 +57,7 @@ ciphers.each do |cipher|
 
     data = (0..i).map{(rand(0x7E - 0x20) + 0x20).chr}.join
     mod = LocalTestModule.new(cipher, data)
-    d = ECBreaker.decrypt(mod, mod.ciphertext, false)
+    d = Prephixer.decrypt(mod, mod.ciphertext, false)
     if(d == data)
       passes += 1
       puts "Passed!"

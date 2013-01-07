@@ -1,5 +1,5 @@
 ##
-# ecbreaker.rb
+# Prephixer.rb
 # Created: January 6, 2013
 # By: Ron Bowes
 #
@@ -26,23 +26,23 @@
 ##
 #
 
-module ECBreaker
+module Prephixer
   attr_accessor :verbose
 
   @@guesses = 0
 
-  def ECBreaker.guesses
+  def Prephixer.guesses
     return @@guesses
   end
 
-  def ECBreaker.ord(c)
+  def Prephixer.ord(c)
     if(c.is_a?(Fixnum))
       return c
     end
     return c.unpack('C')[0]
   end
 
-  def ECBreaker.generate_set(base_list)
+  def Prephixer.generate_set(base_list)
     mapping = []
     base_list.each do |i|
       mapping[ord(i)] = true
@@ -57,12 +57,12 @@ module ECBreaker
     return base_list
   end
 
-  def ECBreaker.to_blocks(mod, data)
+  def Prephixer.to_blocks(mod, data)
     block_count = data.length / mod.blocksize
     return data.unpack("a#{mod.blocksize}" * block_count)
   end
 
-  def ECBreaker.find_character(mod, current_plaintext, character_set)
+  def Prephixer.find_character(mod, current_plaintext, character_set)
     index = current_plaintext.size % mod.blocksize
     block =  current_plaintext.size / mod.blocksize
     prefix = ("A" * (mod.blocksize - (current_plaintext.size % mod.blocksize) - 1))
@@ -81,7 +81,7 @@ module ECBreaker
     return nil
   end
 
-  def ECBreaker.decrypt(mod, data, verbose = false)
+  def Prephixer.decrypt(mod, data, verbose = false)
     result = ''
 
     # Validate the blocksize
@@ -93,7 +93,7 @@ module ECBreaker
 
     # Tell the user what's going on
     if(verbose)
-      puts("> Starting ECBreaker decrypter with module #{mod.class::NAME}")
+      puts("> Starting Prephixer decrypter with module #{mod.class::NAME}")
       puts(">> Encrypted length: %d" % data.length)
       puts(">> Blocksize: %d" % mod.blocksize)
       puts(">> %d blocks:" % blockcount)
