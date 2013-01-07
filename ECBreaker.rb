@@ -57,16 +57,17 @@ module ECBreaker
     return base_list
   end
 
+  def ECBreaker.to_blocks(mod, data)
+    block_count = data / mod.blocksize
+    return goal.unpack("a#{mod.blocksize}" * block_count)
+  end
+
   def ECBreaker.find_character(mod, current_plaintext)
-    prefix = ("A" * (mod.blocksize - current_plaintext.size - 1))
     index = current_plaintext.size % mod.blocksize
     block =  current_plaintext.size / mod.blocksize
-    puts("Character #{index} of block #{block}")
+    prefix = ("A" * (mod.blocksize - index - 1))
 
-    goal = mod.encrypt_with_prefix(prefix)[0,mod.blocksize]
-
-    puts("Goal: #{goal.unpack("H*")}")
-    puts("Prefix: '#{prefix}' (#{prefix.length} bytes)")
+    goal = mod.encrypt_with_prefix(to_blocks(prefix)[index])
 
     generate_set(mod.character_set).each do |c|
       encrypted_text = mod.encrypt_with_prefix(prefix + current_plaintext + c)[0, mod.blocksize]
