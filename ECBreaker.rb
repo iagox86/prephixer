@@ -58,28 +58,23 @@ module ECBreaker
   end
 
   def ECBreaker.to_blocks(mod, data)
-    block_count = data / mod.blocksize
-    return goal.unpack("a#{mod.blocksize}" * block_count)
+    block_count = data.length / mod.blocksize
+    return data.unpack("a#{mod.blocksize}" * block_count)
   end
 
   def ECBreaker.find_character(mod, current_plaintext)
     index = current_plaintext.size % mod.blocksize
     block =  current_plaintext.size / mod.blocksize
-    prefix = ("A" * (mod.blocksize - index - 1))
+    prefix = ("A" * (mod.blocksize - (current_plaintext.size % mod.blocksize) - 1))
 
-    goal = mod.encrypt_with_prefix(to_blocks(prefix)[index])
+    goal = to_blocks(mod, mod.encrypt_with_prefix(prefix))[block]
 
     generate_set(mod.character_set).each do |c|
-      encrypted_text = mod.encrypt_with_prefix(prefix + current_plaintext + c)[0, mod.blocksize]
-      blocks = encrypted_text.unpack("a#{mod.blocksize}" * (encrypted_text.length / mod.blocksize))
+      encrypted_text = mod.encrypt_with_prefix(prefix + current_plaintext + c)
 
-#      if(index == 15)
-#        puts("encrypting: #{prefix + current_plaintext + c}")
-#        puts("Result: #{encrypted_text.unpack("H*")}")
-#      end
+      result = to_blocks(mod, encrypted_text)[block]
 
-
-      if(blocks[0] == goal)
+      if(result == goal)
         puts("Discovered: '#{c}'")
         return c
       end
@@ -101,10 +96,6 @@ module ECBreaker
 
     blockcount = data.length / mod.blocksize
 
-    loop do
-      result = result + find_character(mod, result)
-    end
-
     # Tell the user what's going on
     if(verbose)
       puts("> Starting ECBreaker decrypter with module #{mod.class::NAME}")
@@ -113,6 +104,10 @@ module ECBreaker
       puts(">> %d blocks:" % blockcount)
     end
 
+    0.upto(data.length - 1) do |i|
+      puts("Finding character #{i} / #{data.length}")
+      result = result + find_character(mod, result)
+    end
 
     # Validate and remove the padding
     pad_bytes = result[result.length - 1].chr
