@@ -27,7 +27,7 @@ if(ARGV[0] == 'remote')
 end
 
 # Perform local checks
-ciphers = OpenSSL::Cipher::ciphers.grep(/ecb/)
+ciphers = OpenSSL::Cipher::ciphers - OpenSSL::Cipher::ciphers.grep(/cfb|ofb|rc4/i)
 srand(123456)
 
 passes = 0
