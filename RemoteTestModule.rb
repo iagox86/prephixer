@@ -7,7 +7,7 @@
 require 'httparty'
 
 class RemoteTestModule
-  attr_reader :iv, :data, :blocksize
+  attr_reader :iv, :data
 
   NAME = "RemoteTestModule(tm)"
 
@@ -15,7 +15,6 @@ class RemoteTestModule
     @data = HTTParty.get("http://localhost:20222/get_encrypted_data").parsed_response
     @data = [@data].pack("H*")
     @iv = nil
-    @blocksize = 16
   end
 
   def encrypt_with_prefix(prefix)

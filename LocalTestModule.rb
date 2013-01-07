@@ -7,7 +7,7 @@
 require 'openssl'
 
 class LocalTestModule
-  attr_reader :ciphertext, :blocksize
+  attr_reader :ciphertext
 
   NAME = "LocalTestModule(tm)"
 
@@ -21,7 +21,7 @@ class LocalTestModule
     c = OpenSSL::Cipher::Cipher.new(mode)
 
     # Set up the required variables
-    @blocksize = c.block_size
+    @block_size = c.block_size
     @key = key.nil? ? (1..c.key_len).map{rand(255).chr}.join : key
 
     # Set up the cipher
