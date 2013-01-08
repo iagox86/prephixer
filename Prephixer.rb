@@ -85,7 +85,7 @@ module Prephixer
     end
 
     old_size = mod.encrypt_with_prefix("").length
-    1.upto(64) do |i|
+    1.step(64, 4) do |i|
       new_size = mod.encrypt_with_prefix("A" * i).length
       if(new_size != old_size)
         return new_size - old_size
