@@ -84,15 +84,11 @@ module Prephixer
       return mod.block_size
     end
 
-    # Possible block sizes, ordered by size (smallest has to be first)
-    possible_sizes = [ 4, 8, 16, 24, 32, 64, 128, 256 ]
-
-    possible_sizes.each do |s|
-      a = to_blocks(mod.encrypt_with_prefix(("A" * s) + "A"), s)[0]
-      b = to_blocks(mod.encrypt_with_prefix(("A" * s) + "B"), s)[0]
-
-      if(a == b)
-        return s
+    old_size = mod.encrypt_with_prefix("").length
+    1.upto(64) do |i|
+      new_size = mod.encrypt_with_prefix("A" * i).length
+      if(new_size != old_size)
+        return new_size - old_size
       end
     end
   end
@@ -101,6 +97,7 @@ module Prephixer
     result = ''
 
     block_size = get_block_size(mod)
+    puts("block_size = #{block_size}")
 
     # Validate the block_size
     if(data.length % block_size != 0)
