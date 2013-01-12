@@ -60,17 +60,17 @@ module Prephixer
     return data.unpack("a#{block_size}" * block_count)
   end
 
-  def Prephixer.find_character(mod, current_plaintext, block_size, character_set)
+  def Prephixer.find_character(mod, current_plaintext, block_size, character_set, offset, prefix)
     index = current_plaintext.size % block_size
-    block =  current_plaintext.size / block_size
-    prefix = ("A" * (block_size - (current_plaintext.size % block_size) - 1))
+    block = current_plaintext.size / block_size
+    prefix = prefix + ("A" * (block_size - (current_plaintext.size % block_size) - 1))
 
-    goal = to_blocks(mod.encrypt_with_prefix(prefix), block_size)[block]
+    goal = to_blocks(mod.encrypt_with_prefix(prefix), block_size)[block + offset]
 
     character_set.each do |c|
       encrypted_text = mod.encrypt_with_prefix(prefix + current_plaintext + c)
 
-      result = to_blocks(encrypted_text, block_size)[block]
+      result = to_blocks(encrypted_text, block_size)[block + offset]
 
       if(result == goal)
         return c
@@ -93,11 +93,47 @@ module Prephixer
     end
   end
 
+  # Returns the offset where the string starts changing
+  def Prephixer.str_diff(a, b)
+    if(a.length != b.length)
+      raise("Strings are different lengths!")
+    end
+
+    0.upto(a.length - 1) do |i|
+      return i if(a[i] != b[i])
+    end
+
+    return -1
+  end
+
+  # Returns two values: the first is the number of the block we need to start
+  # checking at, and the second is the prefix that needs to be attached to
+  # the start of every request
+  def Prephixer.get_offset(mod, block_size)
+    # First, figure out the start of where we control...
+    a = mod.encrypt_with_prefix("A" * (block_size * 2))
+    b = mod.encrypt_with_prefix("B" * (block_size * 2))
+    c = mod.encrypt_with_prefix("C" * (block_size * 2))
+    orig_offset = [str_diff(a, b), str_diff(a, c)].min
+
+    # Now, figure out exactly when we start changing the next block
+    0.upto(block_size * 2) do |i|
+      b = mod.encrypt_with_prefix(("A" * i) + ("B" * ((block_size * 2) - i)))
+      c = mod.encrypt_with_prefix(("A" * i) + ("C" * ((block_size * 2) - i)))
+      new_offset = [str_diff(a, b), str_diff(a, c)].min
+
+      if(new_offset != orig_offset)
+        return (new_offset / block_size), "X" * i
+      end
+    end
+  end
+
   def Prephixer.decrypt(mod, data, verbose = false)
     result = ''
 
     block_size = get_block_size(mod)
-    puts("block_size = #{block_size}")
+    #puts("block_size = #{block_size}")
+    offset, prefix = get_offset(mod, block_size)
 
     # Validate the block_size
     if(data.length % block_size != 0)
@@ -121,13 +157,17 @@ module Prephixer
     character_set = generate_set(character_set)
 
     0.upto(data.length - 1) do |i|
-      c = find_character(mod, result, block_size, character_set)
+      c = find_character(mod, result, block_size, character_set, offset, prefix)
       break if(c.nil?)
       result = result + c
 
       if(verbose)
         puts(result)
       end
+    end
+
+    if(result.length == 0)
+      raise("Failed to decrypt any bytes")
     end
 
     # 'Result' should have \x01 as padding, because of how the decryption works:
@@ -137,8 +177,7 @@ module Prephixer
     #
     # Validate it!
     if(ord(result[result.length - 1]) != 1)
-      puts("Invalid padding on result: #{result.unpack("H*")}")
-      exit
+      raise("Invalid padding on result: #{result.unpack("H*")}")
     end
     result = result[0, result.length - 1]
 

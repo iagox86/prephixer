@@ -33,19 +33,38 @@ srand(123456)
 passes = 0
 failures = 0
 
-# Do a bunch of very short strings
-(0..64).to_a.each do |i|
-  data = (0..rand(100)).map{rand(255)}.join
+0.upto(256) do |i|
+  data = "abcdefghijklmnop"
   cipher = ciphers.shuffle[0]
-  print("> #{cipher} with random short data... ")
-  mod = LocalTestModule.new(cipher, data, nil, nil)
-  d = Prephixer.decrypt(mod, mod.ciphertext)
+  print("> #{cipher} with a prefix of #{i/2} bytes... ")
+
+  mod = LocalTestModule.new(cipher, data, nil, false, i/2)
+  d = Prephixer.decrypt(mod, mod.ciphertext, false)
   if(d == data)
     passes += 1
     puts "Passed!"
   else
     failures += 1
     puts "Failed!"
+    puts(mod.to_s)
+    exit
+  end
+end
+
+# Do a bunch of very short strings
+(0..64).to_a.each do |i|
+  data = (0..rand(100)).map{rand(255).chr}.join
+  cipher = ciphers.shuffle[0]
+  print("> #{cipher} with random short data... ")
+  mod = LocalTestModule.new(cipher, data, nil, false)
+  d = Prephixer.decrypt(mod, mod.ciphertext, false)
+  if(d == data)
+    passes += 1
+    puts "Passed!"
+  else
+    failures += 1
+    puts "Failed!"
+    puts(mod.to_s)
     exit
   end
 end
@@ -64,6 +83,7 @@ ciphers.each do |cipher|
     else
       failures += 1
       puts "Failed!"
+      puts(mod.to_s)
     end
   end
 end
