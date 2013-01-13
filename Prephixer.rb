@@ -167,49 +167,56 @@ module Prephixer
     end
   end
 
-  def Prephixer.decrypt(mod, data, verbose = false)
+  # This is the main interface into Prephixer - it decrypts the data based on the
+  # module given as the 'mod' parameter.
+  def Prephixer.decrypt(mod, verbose = false)
     result = ''
 
     block_size = get_block_size(mod)
     #puts("block_size = #{block_size}")
     offset, prefix = get_offset(mod, block_size)
 
-    # Validate the block_size
-    if(data.length % block_size != 0)
-      puts("Encrypted data isn't a multiple of the block size! Is this a block cipher?")
-    end
-
-    blockcount = data.length / block_size
-
     # Tell the user what's going on
     if(verbose)
       puts("> Starting Prephixer decrypter with module #{mod.class::NAME}")
-      puts(">> Encrypted length: %d" % data.length)
       puts(">> Block size: %d" % block_size)
-      puts(">> %d blocks:" % blockcount)
     end
 
+    # This is the default character ordering, based on the Battlestar Galactica wiki
     character_set = ' eationsrlhdcumpfgybw.k:v-/,CT0SA;B#G2xI1PFWE)3(*M\'!LRDHN_"9UO54Vj87q$K6zJY%?Z+=@QX&|[]<>^{}'.chars.to_a
+    # If the module has a character_set() method, use it to get the optimal character set
     if(mod.respond_to?(:character_set))
       character_set = mod.character_set
     end
+    # Fill in the gaps in the character set
     character_set = generate_set(character_set)
 
-    0.upto(data.length - 1) do |i|
+    # Keep looping will we runo ut of characters
+    loop do
+      # Find the next character
       c = find_character(mod, result, block_size, character_set, offset, prefix)
+
+      # Break if we're at the end
       break if(c.nil?)
+
+      # Add the character to the result
       result = result + c
 
+      # Print the character if we're in verbose mode
       if(verbose)
         puts(result)
       end
     end
 
+    # Fail ifno bytes were decrypted
     if(result.length == 0)
       raise("Failed to decrypt any bytes")
     end
 
-    # 'Result' should have \x01 as padding, because of how the decryption works:
+    # 'Result' should have \x01 as padding, because of how the decryption works - at the
+    # point where we're bruteforcing the padding, there will be exactly blocksize-1 character
+    # at the end, and therefore one byte of padding.
+    #
     # 00000000  45 76 65 72 79 74 68 69 6E 67 20 49 20 64 6F 01   Everything.I.do.
     # 00000010  45 76 65 72 79 74 68 69 6E 67 20 49 20 64 6F      Everything.I.do
     # Length: 0x1F (31)
@@ -218,6 +225,8 @@ module Prephixer
     if(ord(result[result.length - 1]) != 1)
       raise("Invalid padding on result: #{result.unpack("H*")}")
     end
+
+    # Remove the one byte of padding
     result = result[0, result.length - 1]
 
     return result

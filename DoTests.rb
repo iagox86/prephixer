@@ -14,10 +14,9 @@ if(ARGV[0] == 'remote')
     mod = RemoteTestModule.new
 
     time = Benchmark.measure do
-      puts Prephixer.decrypt(mod, mod.data, true)
+      puts Prephixer.decrypt(mod, true)
     end
 
-    puts("Guesses: #{Prephixer.guesses}")
     puts("Time: #{time}")
 
   rescue Errno::ECONNREFUSED => e
@@ -39,7 +38,7 @@ failures = 0
   print("> #{cipher} with a prefix of #{i/2} bytes... ")
 
   mod = LocalTestModule.new(cipher, data, nil, false, i/2)
-  d = Prephixer.decrypt(mod, mod.ciphertext, false)
+  d = Prephixer.decrypt(mod, false)
   if(d == data)
     passes += 1
     puts "Passed!"
@@ -57,7 +56,7 @@ end
   cipher = ciphers.shuffle[0]
   print("> #{cipher} with random short data... ")
   mod = LocalTestModule.new(cipher, data, nil, false)
-  d = Prephixer.decrypt(mod, mod.ciphertext, false)
+  d = Prephixer.decrypt(mod, false)
   if(d == data)
     passes += 1
     puts "Passed!"
@@ -76,7 +75,7 @@ ciphers.each do |cipher|
 
     data = (0..i).map{(rand(0x7E - 0x20) + 0x20).chr}.join
     mod = LocalTestModule.new(cipher, data)
-    d = Prephixer.decrypt(mod, mod.ciphertext, false)
+    d = Prephixer.decrypt(mod, false)
     if(d == data)
       passes += 1
       puts "Passed!"
