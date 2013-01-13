@@ -2,17 +2,29 @@
 # Created: January 6, 2013
 # By: Ron Bowes
 #
-# This class implements a simple chosen plaintext attack against ciphers that
-# use the Electronic Codebook mode (ECB). It requires a 'module', which
-# implements a couple simple methods:
+# This class implements a simple chosen plaintext attack against block ciphers
+# that use electronic codebook (ECB) or cipherblock chaining (CBC) modes. This
+# is done by inserting known plaintext strings into the ciphertext, and
+# analyzing the resulting ciphertext.  It requires an encryption oracle that
+# returns E(k, u || a || s), where 'k' is an unknown key, 'u' is unknown data
+# of an arbitrary length (possibly 0 bytes), 'a' is attacker-controlled data,
+# and 's' is the secret data that will be encrypted.
+#
+# This is done by manipulating 'a' such that the first character of 's' falls
+# right before a block boundary, and can therefore be narrowed down to 256
+# possible guesses.
+#
+# To use this module, a module must be created that implements the interface to
+# the oracle. This module must implement a couple simple methods:
 #
 # NAME A constant representing the name of the module, used for output.
 #
 # block_size() [optional] The blocksize of whatever cipher is being used, in
-# bytes (eg, # 16 for AES, 8 for DES, etc)
+# bytes (eg, # 16 for AES, 8 for DES, etc). Prephixer will automatically
+# determine the blocksize if it's not given.
 #
-# do_encrypt(ciphertext) Attempt to decrypt the given data, and return true if
-# there was no padding error and false if a padding error occured.
+# encrypt_with_prefix(ciphertext) Attempt to decrypt the given data, and return
+# true if there was no padding error and false if a padding error occured.
 #
 # character_set() [optional] If character_set() is defined, it is expected to
 # return an array of characters in the order that they're likely to occur in
@@ -27,12 +39,7 @@
 module Prephixer
   attr_accessor :verbose
 
-  @@guesses = 0
-
-  def Prephixer.guesses
-    return @@guesses
-  end
-
+  # Implement an ord() function that works in both Ruby 1.8 and Ruby 1.9
   def Prephixer.ord(c)
     if(c.is_a?(Fixnum))
       return c
@@ -40,6 +47,7 @@ module Prephixer
     return c.unpack('C')[0]
   end
 
+  # Take a base_list, and add every charcter not already in the list
   def Prephixer.generate_set(base_list)
     mapping = []
     base_list.each do |i|
@@ -55,45 +63,77 @@ module Prephixer
     return base_list
   end
 
+  # Divide the given data into blocks of size "block_size", as an array. The
+  # last block is shorter if the total length of data isn't a multiple of the
+  # requested blocksize.
   def Prephixer.to_blocks(data, block_size)
     block_count = data.length / block_size
     return data.unpack("a#{block_size}" * block_count)
   end
 
-  def Prephixer.find_character(mod, current_plaintext, block_size, character_set, offset, prefix)
+  # Determine the next character in the string
+  def Prephixer.find_character(mod, current_plaintext, block_size, character_set, offset, padding)
+    # Figure out the current index within the block
     index = current_plaintext.size % block_size
-    block = current_plaintext.size / block_size
-    prefix = prefix + ("A" * (block_size - (current_plaintext.size % block_size) - 1))
 
+    # Figure out the current block within the plaintext
+    block = current_plaintext.size / block_size
+
+    # Generate a prefix based on:
+    # 1. padding, which ensures that we're starting on a block boundary
+    # 2. a bunch of "A"s, specifically, enough to put the next unknown character
+    #    right before a boundary
+    prefix = padding + ("A" * (block_size - (current_plaintext.size % block_size) - 1))
+
+    # Figure out the 'goal' - that is, what the the block (known_data || unknown_character)
+    # encrypts to
     goal = to_blocks(mod.encrypt_with_prefix(prefix), block_size)[block + offset]
 
+    # Now, try each of the 256 characters - ordered by character_set - to determine which of
+    # them encrypts to the same as the goal (therefore telling us the next byte)
     character_set.each do |c|
+      # Encrypt the block with our current plaintext character
       encrypted_text = mod.encrypt_with_prefix(prefix + current_plaintext + c)
 
+      # Divide the result into blocks
       result = to_blocks(encrypted_text, block_size)[block + offset]
 
+      # Check if the block we're currently working on matches the goal
       if(result == goal)
         return c
       end
     end
+
+    # If we fail - or we're at the end - return nil
     return nil
   end
 
+  # Figure out what the blocksize of the encryption algorithm is - either by
+  # using one that the module provides, or by adding character slowly until the
+  # size of the encrypted data changes
   def Prephixer.get_block_size(mod)
+    # Check if the module has a block_size argument, and simply use it if it does
     if(mod.respond_to?(:block_size) && mod.block_size > 0)
       return mod.block_size
     end
 
+    # Get the original size - with no encrypted data
     old_size = mod.encrypt_with_prefix("").length
+
+    # Try to add anywhere between 4 and 64 characters until it changes (every
+    # algorithm I know of has either a 8 or 64-bit blocksize)
     1.step(64, 4) do |i|
+      # Get the new size
       new_size = mod.encrypt_with_prefix("A" * i).length
+
+      # When the size changes, return the difference
       if(new_size != old_size)
         return new_size - old_size
       end
     end
   end
 
-  # Returns the offset where the string starts changing
+  # Compare two strings and return the first index where they differ
   def Prephixer.str_diff(a, b)
     if(a.length != b.length)
       raise("Strings are different lengths!")
@@ -110,12 +150,13 @@ module Prephixer
   # checking at, and the second is the prefix that needs to be attached to
   # the start of every request
   def Prephixer.get_offset(mod, block_size)
-    # First, figure out the start of where we control...
+    # First, figure out the first block that we control
     a = mod.encrypt_with_prefix("A" * (block_size * 2))
     b = mod.encrypt_with_prefix("B" * (block_size * 2))
     orig_offset = str_diff(a, b) / block_size
 
-    # Now, figure out exactly when we start changing the next block
+    # Now, add 'A's to the start until we get a matching block, since at that point we
+    # know where the block boundary is
     0.upto(block_size * 2) do |i|
       b = mod.encrypt_with_prefix(("A" * i) + ("B" * ((block_size * 2) - i)))
       new_offset = str_diff(a, b) / block_size
