@@ -113,14 +113,12 @@ module Prephixer
     # First, figure out the start of where we control...
     a = mod.encrypt_with_prefix("A" * (block_size * 2))
     b = mod.encrypt_with_prefix("B" * (block_size * 2))
-    c = mod.encrypt_with_prefix("C" * (block_size * 2))
-    orig_offset = [str_diff(a, b), str_diff(a, c)].min / block_size
+    orig_offset = str_diff(a, b) / block_size
 
     # Now, figure out exactly when we start changing the next block
     0.upto(block_size * 2) do |i|
       b = mod.encrypt_with_prefix(("A" * i) + ("B" * ((block_size * 2) - i)))
-      c = mod.encrypt_with_prefix(("A" * i) + ("C" * ((block_size * 2) - i)))
-      new_offset = [str_diff(a, b), str_diff(a, c)].min / block_size
+      new_offset = str_diff(a, b) / block_size
 
       if(new_offset != orig_offset)
         return new_offset, "X" * i
