@@ -26,7 +26,7 @@ if(ARGV[0] == 'remote')
 end
 
 # Perform local checks (TODO: See why ctr doesn't work)
-ciphers = OpenSSL::Cipher::ciphers - OpenSSL::Cipher::ciphers.grep(/cfb|ofb|rc4|xts|gcm|ctr/i)
+ciphers = OpenSSL::Cipher::ciphers - OpenSSL::Cipher::ciphers.grep(/cfb|ofb|rc4|xts|gcm/i)
 srand(123456)
 
 passes = 0
@@ -38,7 +38,7 @@ failures = 0
   print("> #{cipher} with a prefix of #{i/2} bytes... ")
 
   mod = LocalTestModule.new(cipher, data, nil, false, i/2)
-  d = Prephixer.decrypt(mod, false)
+  d = Prephixer.decrypt(mod, cipher !~ /ctr/i, false)
   if(d == data)
     passes += 1
     puts "Passed!"
@@ -56,7 +56,7 @@ end
   cipher = ciphers.shuffle[0]
   print("> #{cipher} with random short data... ")
   mod = LocalTestModule.new(cipher, data, nil, false)
-  d = Prephixer.decrypt(mod, false)
+  d = Prephixer.decrypt(mod, cipher !~ /ctr/i, false)
   if(d == data)
     passes += 1
     puts "Passed!"
@@ -75,7 +75,7 @@ ciphers.each do |cipher|
 
     data = (0..i).map{(rand(0x7E - 0x20) + 0x20).chr}.join
     mod = LocalTestModule.new(cipher, data)
-    d = Prephixer.decrypt(mod, false)
+    d = Prephixer.decrypt(mod, cipher !~ /ctr/i, false)
     if(d == data)
       passes += 1
       puts "Passed!"

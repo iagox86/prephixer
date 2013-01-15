@@ -169,7 +169,13 @@ module Prephixer
 
   # This is the main interface into Prephixer - it decrypts the data based on the
   # module given as the 'mod' parameter.
-  def Prephixer.decrypt(mod, verbose = false)
+  #
+  # has_padding is a little tricky - ECB and CBC mode wind up with padding,
+  # and CTR mode does not, just by nature of how they're decrypted. You'll
+  # get an error if you set has_padding = true on a cipher that doesn't, and you'll
+  # get a "\x01" byte at the end of your string if you set has_padding = false when
+  # there is supposed to be padding. Good luck!
+  def Prephixer.decrypt(mod, has_padding = true, verbose = false)
     result = ''
 
     block_size = get_block_size(mod)
@@ -213,21 +219,23 @@ module Prephixer
       raise("Failed to decrypt any bytes")
     end
 
-    # 'Result' should have \x01 as padding, because of how the decryption works - at the
-    # point where we're bruteforcing the padding, there will be exactly blocksize-1 character
-    # at the end, and therefore one byte of padding.
-    #
-    # 00000000  45 76 65 72 79 74 68 69 6E 67 20 49 20 64 6F 01   Everything.I.do.
-    # 00000010  45 76 65 72 79 74 68 69 6E 67 20 49 20 64 6F      Everything.I.do
-    # Length: 0x1F (31)
-    #
-    # Validate it!
-    if(ord(result[result.length - 1]) != 1)
-      raise("Invalid padding on result: #{result.unpack("H*")}")
-    end
+    if(has_padding)
+      # 'Result' should have \x01 as padding, because of how the decryption works - at the
+      # point where we're bruteforcing the padding, there will be exactly blocksize-1 character
+      # at the end, and therefore one byte of padding.
+      #
+      # 00000000  45 76 65 72 79 74 68 69 6E 67 20 49 20 64 6F 01   Everything.I.do.
+      # 00000010  45 76 65 72 79 74 68 69 6E 67 20 49 20 64 6F      Everything.I.do
+      # Length: 0x1F (31)
+      #
+      # Validate it!
+      if(ord(result[result.length - 1]) != 1)
+        raise("Invalid padding on result: #{result.unpack("H*")}")
+      end
 
-    # Remove the one byte of padding
-    result = result[0, result.length - 1]
+      # Remove the one byte of padding
+      result = result[0, result.length - 1]
+    end
 
     return result
   end
