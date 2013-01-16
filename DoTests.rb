@@ -7,7 +7,7 @@ require 'LocalTestModule'
 require 'RemoteTestModule'
 require 'Prephixer'
 
-TEST_COUNT = 2048 # 256 is a reasonable value for quick tests
+TEST_COUNT = 256 # 256 is a reasonable value for quick tests
 
 if(ARGV[0] == 'remote')
   # Attempt a remote check
