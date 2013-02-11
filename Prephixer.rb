@@ -167,14 +167,15 @@ module Prephixer
     end
   end
 
-  # This is the main interface into Prephixer - it decrypts the data based on the
-  # module given as the 'mod' parameter.
+  # This is the main interface into Prephixer - it decrypts the data based on
+  # the module given as the 'mod' parameter.
   #
-  # has_padding is a little tricky - ECB and CBC mode wind up with padding,
-  # and CTR mode does not, just by nature of how they're decrypted. You'll
-  # get an error if you set has_padding = true on a cipher that doesn't, and you'll
-  # get a "\x01" byte at the end of your string if you set has_padding = false when
-  # there is supposed to be padding. Good luck!
+  # has_padding is a little tricky - actual block ciphers (like ECB and CBC
+  # mode) wind up with padding, but ciphers that are used as stream ciphers
+  # (like OFB, PFB, RC4, and CTR) do not.  If you set it wrong, you'll either
+  # get an error if you set has_padding = true on a stream cipher, or you'll
+  # get a "\x01" byte at the end of your string if you set has_padding = false
+  # when it is a block cipher.
   def Prephixer.decrypt(mod, has_padding = true, verbose = false)
     result = ''
 
