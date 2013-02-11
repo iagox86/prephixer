@@ -14,7 +14,7 @@ if(ARGV[0] == 'remote')
     mod = RemoteTestModule.new
 
     time = Benchmark.measure do
-      puts Prephixer.decrypt(mod, true)
+      puts Prephixer.decrypt(mod, true, true)
     end
 
     puts("Time: #{time}")

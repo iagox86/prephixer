@@ -7,14 +7,10 @@
 require 'httparty'
 
 class RemoteTestModule
-  attr_reader :iv, :data
-
   NAME = "RemoteTestModule(tm)"
 
+  # Nothing is required to initialize
   def initialize()
-    @data = HTTParty.get("http://localhost:20222/get_encrypted_data").parsed_response
-    @data = [@data].pack("H*")
-    @iv = nil
   end
 
   def encrypt_with_prefix(prefix)
